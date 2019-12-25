@@ -16,7 +16,7 @@ App = {
         petTemplate.find('.pet-location').text(data[i].location);
         petTemplate.find('.btn-adopt').attr('data-id', data[i].id);
 
-        petsRow.append(petTemplate.html());
+        petsRow.append(petTemplate.html()); 
       }
     });
 
@@ -24,17 +24,25 @@ App = {
   },
 
   initWeb3: async function() {
-    /*
-     * Replace me...
-     */
+    if(typeof web3 !== undefined){
+      App.web3Provider = web3.currentProvider;
+    } else{
+      App.web3Provider = new Web3.providers.HttpProviders("http://localhost:7545");
+
+       }
+       web3 = new Web3(App.web3Provider);
+
 
     return App.initContract();
   },
 
   initContract: function() {
-    /*
-     * Replace me...
-     */
+    $.getJSON("Adoption.json", function(data){
+      var adoptionArtifact = data;
+      App.contracts.adoption = TruffleContract(adoptionArtifact);
+      App.contracts.adoption.setProvider(App.web3Provider);
+      return App.markAdopted();
+    });
 
     return App.bindEvents();
   },
@@ -44,9 +52,21 @@ App = {
   },
 
   markAdopted: function(adopters, account) {
-    /*
-     * Replace me...
-     */
+    App.contracts.adoption.deployed().then(function(instance){
+      return instance.getAdopters.call();
+
+    }).then(function(adopters){
+      for (let i = 0; i < adopters.length; i++) {
+        if(!web3.toBigNumber(adopters[i]).isZero()){
+          $('.panel-pet').eq(i).find("button").text("Success").attr("disabled",true);
+
+        }
+        
+      }
+    }).catch(function(error){
+      console.log(error.message);
+
+    });
   },
 
   handleAdopt: function(event) {
@@ -54,9 +74,24 @@ App = {
 
     var petId = parseInt($(event.target).data('id'));
 
-    /*
-     * Replace me...
-     */
+    web3.eth.getAccounts(function(error,accounts){
+      if(error){
+        console.log(error);
+
+      }
+
+      App.contracts.adoption.deployed().then(function(instance){
+        return instance.adopt.sendTransaction(petId,{from: accounts[0]})
+
+      }).then(function(result){
+        return App.markAdopted();
+
+      }).catch(function(error){
+        console.log(error.message);
+      }); 
+    });
+
+    
   }
 
 };
